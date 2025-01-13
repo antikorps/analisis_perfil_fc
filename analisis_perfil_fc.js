@@ -1,27 +1,7 @@
-/**
- * @typedef {Object} UsuarioAnalizado
- * @property {Perfil} perfil
- * @property {UsuarioHilos} hilos
- * @property {UsuarioMensajes} mensajes
- */
-
-/**
- * @typedef {Object} Selectores
- * @property {string} usuario
- * @property {string} descripcion
- * @property {string} firma
- * @property {string} registro
- * @property {string} hilos
- * @property {string} mensajes
- * @property {string} coche
- * @property {string} ubicacion
- * @property {string} intereses
- * @property {string} ocupacion
- * @property {string} hilosEnlaces
- * @property {string} hiloPrimerMensaje
- * @property {string} mensajeEnlaces
- * @property {string} mensajeTexto
- */
+var ESPERA = 2000;
+var SIMULTANEIDAD = 3;
+var USUARIOID = "";
+var PAGINAS = 2;
 
 /**
  * @typedef {Object} Perfil
@@ -29,8 +9,8 @@
  * @property {string} descripcion
  * @property {string} firma
  * @property {string} registro
- * @property {string} hilos
- * @property {string} mensajes
+ * @property {string} totalHilos
+ * @property {string} totalMensajes
  * @property {string} coche
  * @property {string} ubicacion
  * @property {string} intereses
@@ -38,514 +18,419 @@
  */
 
 /**
- * @typedef {Object} Mensaje
+ * @typedef {Object} Intervencion
  * @property {string} enlace
+ * @property {string} titulo
  * @property {string} contenido
  */
 
 /**
- * @typedef {Array<Mensaje>} UsuarioHilos
+ * @typedef {Array<Intervencion>} Hilos
  */
 
 /**
- * @typedef {Array<Mensaje>} UsuarioMensajes
+ * @typedef {Array<Intervencion>} Mensajes
  */
-
-var ESPERA_SEGUNDOS = 2000;
-var SIMULTANEIDAD = 3;
 
 /**
- * @param {temaNuevo} bool
- * @return {Selectores}
+ * Divide en lotes o chunks un array
+ *
+ * @param {Array<*>} arr
+ * @param {number} tamaño
+ * @returns {Array<*>}
  */
-function definirSelectores(temaNuevo) {
-  /**
-   * @type {Selectores}
-   */
-  const selectores = {};
-  if (temaNuevo) {
-    selectores.usuario =
-      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > h2:nth-child(1)";
-    selectores.descripcion =
-      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > h4:nth-child(2)";
-    selectores.firma =
-      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > p:nth-child(1)";
-    selectores.registro =
-      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(3) > span:nth-child(2)";
-    selectores.hilos =
-      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(2) > a:nth-child(1) > div:nth-child(1) > span:nth-child(1)";
-    selectores.mensajes =
-      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(2) > a:nth-child(2) > div:nth-child(1) > span:nth-child(1)";
-    selectores.coche =
-      "#collapseobj_aboutme > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > span:nth-child(1)";
-    selectores.ubicacion =
-      "#collapseobj_aboutme > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > span:nth-child(1)";
-    selectores.intereses =
-      "#collapseobj_aboutme > div:nth-child(1) > div:nth-child(1) > div:nth-child(3) > div:nth-child(2) > span:nth-child(1)";
-    selectores.ocupacion =
-      "#collapseobj_aboutme > div:nth-child(1) > div:nth-child(1) > div:nth-child(4) > div:nth-child(2) > span:nth-child(1)";
-
-    selectores.hilosEnlaces = `a[id^="thread_title_"]`;
-    selectores.hiloPrimerMensaje = `#posts div[id^="post_message_`;
-    selectores.mensajeEnlaces = `a[id^="post_title_"]`;
-    selectores.mensajeTexto = "#post_message_";
-  } else {
-    // TODO
+function dividirLotes(arr, tamaño) {
+  let r = [];
+  for (let i = 0; i < arr.length; i += tamaño) {
+    r.push(arr.slice(i, i + tamaño));
   }
-  return selectores;
+  return r;
 }
 
-// FileSaver https://github.com/eligrey/FileSaver.js
-(function (a, b) {
-  if ("function" == typeof define && define.amd) define([], b);
-  else if ("undefined" != typeof exports) b();
-  else {
-    b(), (a.FileSaver = { exports: {} }.exports);
-  }
-})(this, function () {
-  "use strict";
-  function b(a, b) {
-    return (
-      "undefined" == typeof b
-        ? (b = { autoBom: !1 })
-        : "object" != typeof b &&
-          (console.warn("Deprecated: Expected third argument to be a object"),
-          (b = { autoBom: !b })),
-      b.autoBom &&
-      /^\s*(?:text\/\S*|application\/xml|\S*\/\S*\+xml)\s*;.*charset\s*=\s*utf-8/i.test(
-        a.type
-      )
-        ? new Blob(["\uFEFF", a], { type: a.type })
-        : a
-    );
-  }
-  function c(a, b, c) {
-    var d = new XMLHttpRequest();
-    d.open("GET", a),
-      (d.responseType = "blob"),
-      (d.onload = function () {
-        g(d.response, b, c);
-      }),
-      (d.onerror = function () {
-        console.error("could not download file");
-      }),
-      d.send();
-  }
-  function d(a) {
-    var b = new XMLHttpRequest();
-    b.open("HEAD", a, !1);
-    try {
-      b.send();
-    } catch (a) {}
-    return 200 <= b.status && 299 >= b.status;
-  }
-  function e(a) {
-    try {
-      a.dispatchEvent(new MouseEvent("click"));
-    } catch (c) {
-      var b = document.createEvent("MouseEvents");
-      b.initMouseEvent(
-        "click",
-        !0,
-        !0,
-        window,
-        0,
-        0,
-        0,
-        80,
-        20,
-        !1,
-        !1,
-        !1,
-        !1,
-        0,
-        null
-      ),
-        a.dispatchEvent(b);
-    }
-  }
-  var f =
-      "object" == typeof window && window.window === window
-        ? window
-        : "object" == typeof self && self.self === self
-        ? self
-        : "object" == typeof global && global.global === global
-        ? global
-        : void 0,
-    a =
-      /Macintosh/.test(navigator.userAgent) &&
-      /AppleWebKit/.test(navigator.userAgent) &&
-      !/Safari/.test(navigator.userAgent),
-    g =
-      f.saveAs ||
-      ("object" != typeof window || window !== f
-        ? function () {}
-        : "download" in HTMLAnchorElement.prototype && !a
-        ? function (b, g, h) {
-            var i = f.URL || f.webkitURL,
-              j = document.createElement("a");
-            (g = g || b.name || "download"),
-              (j.download = g),
-              (j.rel = "noopener"),
-              "string" == typeof b
-                ? ((j.href = b),
-                  j.origin === location.origin
-                    ? e(j)
-                    : d(j.href)
-                    ? c(b, g, h)
-                    : e(j, (j.target = "_blank")))
-                : ((j.href = i.createObjectURL(b)),
-                  setTimeout(function () {
-                    i.revokeObjectURL(j.href);
-                  }, 4e4),
-                  setTimeout(function () {
-                    e(j);
-                  }, 0));
-          }
-        : "msSaveOrOpenBlob" in navigator
-        ? function (f, g, h) {
-            if (((g = g || f.name || "download"), "string" != typeof f))
-              navigator.msSaveOrOpenBlob(b(f, h), g);
-            else if (d(f)) c(f, g, h);
-            else {
-              var i = document.createElement("a");
-              (i.href = f),
-                (i.target = "_blank"),
-                setTimeout(function () {
-                  e(i);
-                });
-            }
-          }
-        : function (b, d, e, g) {
-            if (
-              ((g = g || open("", "_blank")),
-              g &&
-                (g.document.title = g.document.body.innerText =
-                  "downloading..."),
-              "string" == typeof b)
-            )
-              return c(b, d, e);
-            var h = "application/octet-stream" === b.type,
-              i = /constructor/i.test(f.HTMLElement) || f.safari,
-              j = /CriOS\/[\d]+/.test(navigator.userAgent);
-            if ((j || (h && i) || a) && "undefined" != typeof FileReader) {
-              var k = new FileReader();
-              (k.onloadend = function () {
-                var a = k.result;
-                (a = j
-                  ? a
-                  : a.replace(/^data:[^;]*;/, "data:attachment/file;")),
-                  g ? (g.location.href = a) : (location = a),
-                  (g = null);
-              }),
-                k.readAsDataURL(b);
-            } else {
-              var l = f.URL || f.webkitURL,
-                m = l.createObjectURL(b);
-              g ? (g.location = m) : (location.href = m),
-                (g = null),
-                setTimeout(function () {
-                  l.revokeObjectURL(m);
-                }, 4e4);
-            }
-          });
-  (f.saveAs = g.saveAs = g),
-    "undefined" != typeof module && (module.exports = g);
-});
-
 /**
+ * Pausa la ejecución del código durante un tiempo determinado en milisegundos.
  *
  * @param {number} milisegundos
- * @returns
+ * @returns {Promise}
  */
 function sleep(milisegundos) {
   return new Promise((resolver) => setTimeout(resolver, milisegundos));
 }
 
-/**
- *
- * @param {Array<string>} arr
- * @param {number} size
- * @returns
- */
-function dividirLotes(arr, size) {
-  let result = [];
-  for (let i = 0; i < arr.length; i += size) {
-    result.push(arr.slice(i, i + size));
-  }
-  return result;
-}
+class UsuarioFC {
+  /**
+   *
+   * @param {number} espera
+   * @param {number} simultaneidad
+   * @param {string} usuarioId
+   * @param {number} limitePagina
+   */
+  constructor(espera, simultaneidad, usuarioId, limitePagina) {
+    this.espera = espera;
+    this.simultaneidad = simultaneidad;
+    this.usuarioId = usuarioId;
+    this.temaNuevo = true;
+    this.limitePagina = limitePagina;
 
-/**
- *
- * @param {string} mensaje
- * @param {string} color
- * @param {bool} critico
- */
-function informarProgreso(mensaje, color, critico) {
-  document.write(`<p style="color: ${color}">${mensaje}</p>`);
-  if (critico) {
-    throw new Error(mensaje);
-  }
-}
+    /**
+     * @type {Perfil}
+     */
+    this.perfil = {};
 
-/**
- *
- * @param {string} endpoint
- * @returns {Promise<Document>}
- */
-async function parsearDocumentoTrasPeticion(endpoint) {
-  const f = await fetch(endpoint);
-  if (f.status != 200) {
-    informarProgreso(
-      `se ha recibido un status code incorrecto al hacer la petición a ${endpoint}: ${f.statusText}`,
+    /**
+     * @type {Hilos}
+     */
+    this.hilos = [];
+
+    /**
+     * @type {Mensajes}
+     */
+    this.mensajes = [];
+
+    this.selectorUsuario =
+      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > h2:nth-child(1)";
+    this.selectorDescripcion =
+      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > h4:nth-child(2)";
+    this.selectorFirma =
+      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > p:nth-child(1)";
+    this.selectorRegistro =
+      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(3) > span:nth-child(2)";
+    this.selectorTotalHilos =
+      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(2) > a:nth-child(1) > div:nth-child(1) > span:nth-child(1)";
+    this.selectorTotalMensajes =
+      "#container > section:nth-child(2) > div:nth-child(2) > div:nth-child(2) > a:nth-child(2) > div:nth-child(1) > span:nth-child(1)";
+    this.selectorCoche =
+      "#collapseobj_aboutme > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > span:nth-child(1)";
+    this.selectorUbicacion =
+      "#collapseobj_aboutme > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > span:nth-child(1)";
+    this.selectorIntereses =
+      "#collapseobj_aboutme > div:nth-child(1) > div:nth-child(1) > div:nth-child(3) > div:nth-child(2) > span:nth-child(1)";
+    this.selectorOcupacion =
+      "#collapseobj_aboutme > div:nth-child(1) > div:nth-child(1) > div:nth-child(4) > div:nth-child(2) > span:nth-child(1)";
+
+    this.selectorHilosEnlaces = `a[id^="thread_title_"]`;
+    this.selectorHiloIntervencion = `#posts div[id^="post_message_`;
+    this.selectorMensajesEnlaces = `a[id^="post_title_"]`;
+    this.selectorMensajesTitulos = ``
+    this.selectorMensajeIntervencion = "#post_message_";
+  }
+  /**
+   * Utilidad para informar del progreso
+   * Salida en el document de la web
+   * Arroja excepción en caso de error crítico
+   *
+   * @param {string} mensaje
+   * @param {string} color
+   * @param {string} critico
+   */
+  informarProgreso(mensaje, color, critico) {
+    document.write(`<p style="color:${color}">${mensaje}</p>`);
+    if (critico) {
+      throw new Error(mensaje);
+    }
+  }
+  /**
+   * Parsea en HTML la respuesta a un get
+   *
+   * @param {string} endpoint
+   * @returns {Promise<Document>}
+   */
+  async parsearDocumentoTrasPeticion(endpoint) {
+    const f = await fetch(endpoint);
+    if (f.status != 200) {
+      informarProgreso(
+        `se ha recibido un status code incorrecto al hacer la petición a ${endpoint}: ${f.statusText}`,
+        "red",
+        true
+      );
+    }
+    const t = await f.text();
+    const parser = new DOMParser();
+    return parser.parseFromString(t, "text/html");
+  }
+  /**
+   * Identifica el tema que está utilizando el usuario
+   *
+   * POR HACER: selectores para el tema antiguo
+   *
+   * @param {Document} doc
+   */
+  identificarTema(doc) {
+    const $enlaceVersionAntiguo = doc.querySelector(
+      `a[title="Versión antigua"]`
+    );
+    if ($enlaceVersionAntiguo != null) {
+      return;
+    }
+
+    this.informarProgreso(
+      "El uso del tema antiguo no está implementado, para usar el script deberás cambiar al tema actual",
       "red",
       true
     );
-  }
-  const t = await f.text();
-  const parser = new DOMParser();
-  return parser.parseFromString(t, "text/html");
-}
 
-/**
- * @param {Document} doc
- * @param {boolean} temaNuevo
- * @returns {string}
- */
-function extraerUsuarioId(doc, temaNuevo) {
-  if (temaNuevo) {
-    // Selector con el usuarioId <a class="menu-item" style="padding-top: 24px" href="/foro/member.php?u=597236" title="Ver mi perfil">
+    this.temaNuevo = false;
+    
+    this.selectorUsuario = "";
+    this.selectorDescripcion = "";
+    this.selectorFirma = "";
+    this.selectorRegistro = "";
+    this.selectorTotalHilos = "";
+    this.selectorTotalMensajes = "";
+    this.selectorCoche = "";
+    this.selectorUbicacion = "";
+    this.selectorIntereses = "";
+    this.selectorOcupacion = "";
+
+    this.selectorHilosEnlaces = "";
+    this.selectorHiloIntervencion = "";
+    this.selectorMensajesEnlaces = "";
+    this.selectorMensajeIntervencion = "";
+  }
+  /**
+   * Localiza el usuarioid o identificador del usuario
+   *
+   * @param {Document} doc
+   */
+  identificarUsuario(doc) {
+    if (this.temaNuevo) {
+      this.buscarUsuarioIdTemaNuevo(doc);
+      return;
+    }
+    this.buscarUsuarioIdTemaAntiguo(doc);
+  }
+  /**
+   * Búsqueda del usuarioid en el tema nuevo
+   *
+   * @param {Document} doc
+   */
+  buscarUsuarioIdTemaNuevo(doc) {
+    if (this.usuarioId != "") {
+      return;
+    }
     const selectorUsuarioId = `a.menu-item[title="Ver mi perfil"]`;
     const $usuarioId = doc.querySelector(selectorUsuarioId);
     if ($usuarioId == null) {
-      throw new Error(
-        `ha fallado el selector ${selectorUsuarioId} y no se ha podido encontrar el usuarioId`
-      );
+      const mensajeError = `ha fallado el selector ${selectorUsuarioId} y no se ha podido encontrar el usuarioId`;
+      this.informarProgreso(mensajeError, "red", true);
     }
     const usuarioIdHref = $usuarioId.getAttribute("href");
     if (usuarioIdHref == null) {
-      throw new Error(
-        `no se ha podido obtener el selector href de ${selectorUsuarioId}`
-      );
+      const mensajeError = `no se ha podido obtener el selector href de ${selectorUsuarioId}`;
+      this.informarProgreso(mensajeError, "red", true);
     }
-    return usuarioIdHref.replace("/foro/member.php?u=", "");
+    const usuarioId = usuarioIdHref.replace("/foro/member.php?u=", "");
+    this.usuarioId = usuarioId;
+    const mensajeProgreso = `✅ usuarioId encontrado ${usuarioId}`;
+    this.informarProgreso(mensajeProgreso, "green", false);
   }
-  // TODO: selector tema antiguo
-}
-
-/**
- * @param {Document} doc
- * @returns {boolean}
- */
-function usoTemaNuevo(doc) {
-  // Con el tema nuevo existe este botón: <a class="menu-item" title="Versión antigua" onclick="setOldDesign()">
-  const $enlaceVersionAntiguo = doc.querySelector(`a[title="Versión antigua"]`);
-  if ($enlaceVersionAntiguo != null) {
-    return true;
-  }
-  return false;
-}
-
-/**
- * @return {Promise<{usuarioId: string, temaNuevo: boolean}>}
- */
-async function usuarioIdTema() {
-  const endpoint = "https://forocoches.com/foro/";
-  const doc = await parsearDocumentoTrasPeticion(endpoint);
-
-  const temaNuevo = usoTemaNuevo(doc);
-  if (!temaNuevo) {
-    informarProgreso(
-      "el tema antiguo no está todavía implementado, cambia al tema nuevo para poder usar el script",
-      "red",
-      true
-    );
-  }
-  const usuarioId = extraerUsuarioId(doc, temaNuevo);
-  informarProgreso(
-    `✅ el usuario ${usuarioId} está utilizando un tema válido`,
-    "green",
-    false
-  );
-  return {
-    usuarioId: usuarioId,
-    temaNuevo: temaNuevo,
-  };
-}
-
-/**
- * @param {string} usuarioId
- * @param {Selectores} selectores
- * @return {Promise<Perfil>}
- */
-async function extraerDescripcion(usuarioId, selectores) {
-  const endpoint = `https://forocoches.com/foro/member.php?u=${usuarioId}`;
-  const doc = await parsearDocumentoTrasPeticion(endpoint);
-
   /**
-   * @type {Perfil}
+   * Búsqueda del usuarioid en el tema antiguo
+   *
+   * @param {Document} doc
    */
-  const perfil = {
-    usuario: doc.querySelector(selectores.usuario)?.textContent ?? "",
-    descripcion: doc.querySelector(selectores.descripcion)?.textContent ?? "",
-    firma: doc.querySelector(selectores.firma)?.textContent ?? "",
-    registro: doc.querySelector(selectores.registro)?.textContent ?? "",
-    hilos: doc.querySelector(selectores.hilos)?.textContent ?? "",
-    mensajes: doc.querySelector(selectores.mensajes)?.textContent ?? "",
-    coche: doc.querySelector(selectores.coche)?.textContent ?? "",
-    ubicacion: doc.querySelector(selectores.ubicacion)?.textContent ?? "",
-    intereses: doc.querySelector(selectores.intereses)?.textContent ?? "",
-    ocupacion: doc.querySelector(selectores.ocupacion)?.textContent ?? "",
-  };
-
-  informarProgreso(
-    `✅ se ha incorporado al informe el perfil de usuario <pre>${JSON.stringify(
-      perfil
-    )}</pre>`,
-    "green",
-    false
-  );
-
-  return perfil;
-}
-
-/**
- * @param {string} usuario
- * @param {Selectores} selectores
- * @return {Promise<UsuarioHilos>}
- *
- */
-async function extraerHilos(usuario, selectores) {
-  const parametros = {
-    do: "process",
-    searchuser: usuario,
-    starteronly: 1,
-    exactname: 1,
-  };
-  const parametrosBusqueda = new URLSearchParams(parametros);
-
-  const endpoint = `https://forocoches.com/foro/search.php?${parametrosBusqueda}`;
-  const doc = await parsearDocumentoTrasPeticion(endpoint);
-
-  const $hilos = doc.querySelectorAll(selectores.hilosEnlaces);
-  const hilosEnlaces = [];
-  for (const $hilo of $hilos) {
-    const href = $hilo.getAttribute("href");
-    if (href == null) {
-      continue;
+  buscarUsuarioIdTemaAntiguo(doc) {
+    if (this.usuarioId != "") {
+      return;
     }
-    hilosEnlaces.push(
-      "https://forocoches.com/foro/" + href.replace("&highlight=", "")
-    );
+    // POR HACER
   }
-
   /**
-   * @type {UsuarioHilos}
+   * Permite determinar el tema utilizado y localizar el usuarioid (identificador del usuario)
    */
-  const usuarioHilos = [];
-
-  informarProgreso(
-    "⏳ buscando entre los últimos 25 hilos del usuario",
-    "green",
-    false
-  );
-  for (const hiloEnlace of hilosEnlaces) {
-    const doc = await parsearDocumentoTrasPeticion(hiloEnlace);
-
-    const primerMensaje =
-      doc.querySelector(selectores.hiloPrimerMensaje)?.textContent ?? "";
-
-    /**
-     * @type {Mensaje}
-     */
-    const usuarioMensaje = {
-      enlace: hiloEnlace,
-      contenido: primerMensaje.trim(),
-    };
-    usuarioHilos.push(usuarioMensaje);
-  }
-  informarProgreso(
-    `✅ se ha incorporar al informe los últimos <strong>${usuarioHilos.length}</strong> hilos creados por el usuario`,
-    "green",
-    false
-  );
-  return usuarioHilos;
-}
-
-/**
- * @param {string} usuario
- * @param {Selectores} selectores
- * @return {Promise<Array<string>>}
- *
- */
-async function extraerEnlacesMensajes(usuario, selectores) {
-  const parametros = {
-    do: "process",
-    searchuser: usuario,
-    exactname: 1,
-    showposts: 1,
-  };
-  const parametrosBusqueda = new URLSearchParams(parametros);
-
-  const endpoint = `https://forocoches.com/foro/search.php?${parametrosBusqueda}`;
-
-  // Devuelve un searchid necesario para la paginación
-  const f = await fetch(endpoint);
-  if (f.status != 200) {
-    throw new Error(
-      `se ha recibido un status code incorrecto al hacer la petición a ${endpoint}: ${f.statusText}`
+  async peticionPaginaPrincipal() {
+    const doc = await this.parsearDocumentoTrasPeticion(
+      "https://forocoches.com/foro/"
     );
+    this.identificarTema(doc);
+    this.identificarUsuario(doc);
   }
-  const locationUrl = new URL(f.url);
-  const parametrosLocation = new URLSearchParams(locationUrl.search);
-  const searchId = parametrosLocation.get("searchid");
-  if (searchId == null) {
-    throw new Error(
-      `no se ha encontrado el searchid en el location ${location}`
-    );
-  }
-
-  const t = await f.text();
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(t, "text/html");
-
   /**
-   * @type {Array<string>}
+   * Extracción de los datos del usuario de la página de su perfil
+   *
+   * usuario, descripcion, firma, registro, total hilos,
+   * total mensajes, coche, ubicacion, intereses, ocupacion
    */
-  const usuarioMensajes = [];
-  const $mensajesBusqueda = doc.querySelectorAll(selectores.mensajeEnlaces);
-  for (const $mensajeBusqueda of $mensajesBusqueda) {
-    const href = $mensajeBusqueda.getAttribute("href");
-    if (href == null) {
-      continue;
-    }
-    const mensajeEnlace = `https://forocoches.com/foro/${href}`;
-    usuarioMensajes.push(mensajeEnlace);
-  }
+  async extraerDescripcion() {
+    const endpoint = `https://forocoches.com/foro/member.php?u=${this.usuarioId}`;
+    const doc = await this.parsearDocumentoTrasPeticion(endpoint);
 
-  informarProgreso(
-    "⏳ buscando los enlaces de los mensajes del usuario correspondientes a la página 1",
-    "green",
-    false
-  );
-  if (usuarioMensajes.length < 25) {
-    return usuarioMensajes;
-  }
+    this.perfil.usuario = doc.querySelector(this.selectorUsuario)?.textContent ?? "";
+    this.perfil.descripcion =
+      doc.querySelector(this.selectorDescripcion)?.textContent ?? "";
+    this.perfil.firma = doc.querySelector(this.selectorFirma)?.textContent ?? "";
+    this.perfil.registro = doc.querySelector(this.selectorRegistro)?.textContent ?? "";
+    this.perfil.totalHilos =
+      doc.querySelector(this.selectorTotalHilos)?.textContent ?? "";
+    this.perfil.totalMensajes =
+      doc.querySelector(this.selectorTotalMensajes)?.textContent ?? "";
+    this.perfil.coche = doc.querySelector(this.selectorCoche)?.textContent ?? "";
+    this.perfil.ubicacion =
+      doc.querySelector(this.selectorUbicacion)?.textContent ?? "";
+    this.perfil.intereses =
+      doc.querySelector(this.selectorIntereses)?.textContent ?? "";
+    this.perfil.ocupacion =
+      doc.querySelector(this.selectorOcupacion)?.textContent ?? "";
 
-  const limitePagina = 2;
-  for (let pagina = 2; pagina <= limitePagina; pagina++) {
-    informarProgreso(
-      `⏳ buscando los enlaces de los mensajes del usuario correspondientes a la página ${pagina}`,
+    this.informarProgreso(
+      `✅ se ha incorporado al informe la descripción del usuario <pre>${JSON.stringify(
+        this.perfil
+      )}</pre>`,
       "green",
       false
     );
+  }
+  /**
+   * Búsqueda de los enlaces de los últimos hilos creados por el usuario
+   */
+  async buscarHilos() {
+    this.informarProgreso(
+      `⏳ buscando los enlaces de los últimos 25 posibles hilos del usuario `,
+      "green",
+      false
+    );
+    const parametros = {
+      do: "process",
+      searchuser: this.perfil.usuario,
+      starteronly: 1,
+      exactname: 1,
+    };
+    const parametrosBusqueda = new URLSearchParams(parametros);
 
-    const endpointPaginacion = `https://forocoches.com/foro/search.php?searchid=${searchId}&pp=25&page=${pagina}`;
-    const f = await fetch(endpointPaginacion);
+    const endpoint = `https://forocoches.com/foro/search.php?${parametrosBusqueda}`;
+    const doc = await this.parsearDocumentoTrasPeticion(endpoint);
+
+    const $hilos = doc.querySelectorAll(this.selectorHilosEnlaces);
+
+    for (const $hilo of $hilos) {
+      const href = $hilo.getAttribute("href");
+      if (href == null) {
+        continue;
+      }
+      this.hilos.push({
+        enlace: href,
+        titulo: $hilo.textContent.trim(),
+        contenido: "",
+      });
+    }
+    this.informarProgreso(
+      `✅ se han encontrado los enlaces para ${this.hilos.length} hilos creados por el usuario de un máximo analizable de 25`,
+      "green",
+      false
+    );
+  }
+  /**
+   * Búsqueda de los enlaces de los últimos mensajes enviados por el usuario
+   */
+  async buscarMensajes() {
+    this.informarProgreso(
+      "⏳ buscando los enlaces de los mensajes del usuario correspondientes a la página 1",
+      "green",
+      false
+    );
+    const parametros = {
+      do: "process",
+      searchuser: this.perfil.usuario,
+      exactname: 1,
+      showposts: 1,
+    };
+    const parametrosBusqueda = new URLSearchParams(parametros);
+
+    const endpoint = `https://forocoches.com/foro/search.php?${parametrosBusqueda}`;
+
+    // Devuelve un searchid necesario para la paginación
+    const f = await fetch(endpoint);
     if (f.status != 200) {
-      informarProgreso(
-        `se ha recibido un status code incorrecto al hacer la petición a ${endpointPaginacion}: ${f.statusText}`,
+      this.informarProgreso(
+        `se ha recibido un status code incorrecto al hacer la petición a ${endpoint}: ${f.statusText}`,
+        "red",
+        true
+      );
+    }
+    const finalUrl = new URL(f.url);
+    const parametrosLocation = new URLSearchParams(finalUrl.search);
+    const searchId = parametrosLocation.get("searchid");
+    if (searchId == null) {
+      this.informarProgreso(
+        `no se ha encontrado el searchid en el location ${f.url}`,
+        "red",
+        true
+      );
+    }
+
+    const t = await f.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(t, "text/html");
+
+    const $mensajesBusqueda = doc.querySelectorAll(this.selectorMensajesEnlaces);
+    for (const $mensajeBusqueda of $mensajesBusqueda) {
+      const href = $mensajeBusqueda.getAttribute("href");
+      if (href == null) {
+        continue;
+      }
+      this.mensajes.push({
+        enlace: href,
+        titulo: $mensajeBusqueda.textContent.trim(),
+        contenido: "",
+      });
+    }
+
+    if (this.mensajes.length < 25) {
+      return usuarioMensajes;
+    }
+
+    for (let pagina = 2; pagina <= this.limitePagina; pagina++) {
+      this.informarProgreso(
+        `⏳ buscando los enlaces de los mensajes del usuario correspondientes a la página ${pagina}`,
+        "green",
+        false
+      );
+
+      const endpointPaginacion = `https://forocoches.com/foro/search.php?searchid=${searchId}&pp=25&page=${pagina}`;
+      const f = await fetch(endpointPaginacion);
+      if (f.status != 200) {
+        this.informarProgreso(
+          `se ha recibido un status code incorrecto al hacer la petición a ${endpointPaginacion}: ${f.statusText}`,
+          "red",
+          true
+        );
+      }
+      const t = await f.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(t, "text/html");
+
+      const $mensajesPagina = doc.querySelectorAll(this.selectorMensajesEnlaces);
+      for (const $mensajePagina of $mensajesPagina) {
+        const href = $mensajePagina.getAttribute("href");
+        if (href == null) {
+          continue;
+        }
+        const mensajeEnlace = `https://forocoches.com/foro/${href}`;
+        this.mensajes.push({
+          enlace: mensajeEnlace,
+          titulo: $mensajePagina.textContent.trim(),
+          contenido: "",
+        });
+      }
+
+      if ($mensajesPagina < 25) {
+        break;
+      }
+    }
+  }
+
+  /**
+   * Recuperar el contenido textual de la intervención del usuario
+   *
+   * @param {Intervencion} intervencion
+   * @param {string} selector
+   * @returns {Promise<Intervencion>}
+   */
+  async buscarContenidoIntervencion(intervencion, selector) {
+    const f = await fetch(intervencion.enlace);
+    if (f.status != 200) {
+      this.informarProgreso(
+        `se ha recibido un status code incorrecto al hacer la petición a ${endpoint}: ${f.statusText}`,
         "red",
         true
       );
@@ -554,142 +439,132 @@ async function extraerEnlacesMensajes(usuario, selectores) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(t, "text/html");
 
-    const $mensajesPagina = doc.querySelectorAll(selectores.mensajeEnlaces);
-    for (const $mensajePagina of $mensajesPagina) {
-      const href = $mensajePagina.getAttribute("href");
-      if (href == null) {
-        continue;
+    const mensajeAutor = doc.querySelector(selector);
+    let $selectorCita = mensajeAutor.querySelectorAll("div.squote");
+
+    for (let i = 0; i < $selectorCita.length; i++) {
+      $selectorCita[i].remove();
+    }
+
+    let contenido = doc.querySelector(selector)?.textContent ?? "";
+    return {
+      enlace: intervencion.enlace,
+      titulo: intervencion.titulo,
+      contenido: contenido.trim(),
+    };
+  }
+  /**
+   * Extrae el contenido textual de la intervención del usuario
+   * 
+   * @param {string} identificador 
+   * @return {Promise}
+   */
+  async extraerIntervencion(identificador) {
+    /**
+     * @type {Array<Array<Intervencion>>}
+     * 
+     */
+    let lotes = [];
+    let selector = "";
+    if (identificador == "hilos") {
+      lotes = dividirLotes(this.hilos, this.simultaneidad);
+      selector = this.selectorHiloIntervencion;
+    } else {
+      lotes = dividirLotes(this.mensajes, this.simultaneidad);
+    }
+    
+    const totalLotes = lotes.length;
+    /**
+     * @type {Array<Intervencion>}
+     */
+    const intervencionesActualizadas = [];
+    for (const [indice, lote]of lotes.entries()) {
+      this.informarProgreso(
+        `⏳ buscando las intervenciones del usuario en sus ${identificador}. Progreso lote ${
+          indice + 1
+        } de ${totalLotes}`,
+        "green",
+        false
+      );
+      const promesas = [];
+      for (const intervencion of lote) {
+        if (identificador == "mensajes") {
+          const selectorId = intervencion.enlace.replace(
+            /.*&highlight=#post/gm,
+            ""
+          );
+          selector = `${this.selectorMensajeIntervencion}${selectorId}`;
+        }
+
+        promesas.push(this.buscarContenidoIntervencion(intervencion, selector));
       }
-      const mensajeEnlace = `https://forocoches.com/foro/${href}`;
-      usuarioMensajes.push(mensajeEnlace);
+      const resultados = await Promise.all(promesas);
+      for (const r of resultados) {
+        intervencionesActualizadas.push(r);
+      }
+      await sleep(this.espera);
     }
-
-    if ($mensajesPagina < 25) {
-      break;
+    if (identificador == "hilos") {
+      this.hilos = intervencionesActualizadas;
+    } else {
+      this.mensajes = intervencionesActualizadas;
     }
   }
-  return usuarioMensajes;
-}
 
-/**
- *
- * @param {string} url
- * @param {Selectores} selectores
- * @returns {Promise<Mensaje>}
- */
-async function peticionMensajeExtraccion(url, selectores) {
+  
   /**
-   * @type {Mensaje}
+   * Serialización en JSON de la descripción,
+   * los hilos creados y los mensajes enviados
+   * para su posterior análisis por IA
    */
-  const mensaje = {
-    enlace: url,
-    contenido: "",
-  };
-
-  const selectorId = url.replace(/.*&highlight=#post/gm, "");
-  const selectorPersonalizado = `${selectores.mensajeTexto}${selectorId}`;
-
-  const doc = await parsearDocumentoTrasPeticion(url);
-
-  // Eliminar las quotes
-  const mensajeAutor = doc.querySelector(selectorPersonalizado);
-  let $selectorCita = mensajeAutor.querySelectorAll("div.squote");
-
-  for (let i = 0; i < $selectorCita.length; i++) {
-    $selectorCita[i].remove();
-  }
-
-  let contenido = doc.querySelector(selectorPersonalizado)?.textContent ?? "";
-  mensaje.contenido = contenido.trim();
-  return mensaje;
-}
-
-/**
- * @param {Array<string>} mensajes
- * @param {Selectores} selectores
- * @return {Promise<UsuarioMensajes>}
- *
- */
-async function extraerMensajes(mensajes, selectores) {
-  const lotes = dividirLotes(mensajes, SIMULTANEIDAD);
-  const totalLotes = lotes.length;
-  /**
-   * @type {UsuarioMensajes}
-   */
-  const usuarioMensajes = [];
-  for (const [indice, lote] of lotes.entries()) {
-    informarProgreso(
-      `⏳ buscando mensajes de usuario por lotes. ${
-        indice + 1
-      } de ${totalLotes}`,
+  serializarDatos() {
+    const data = {
+      perfil: this.perfil,
+      hilos_creados: this.hilos,
+      mensajes_enviados: this.mensajes,
+    };
+    const informeJSON = JSON.stringify(data);
+    this.informarProgreso(
+      `Informe en formato JSON generado correctamente <pre>${informeJSON}</pre>`,
       "green",
       false
     );
-    const promesas = [];
-    for (const enlace of lote) {
-      promesas.push(peticionMensajeExtraccion(enlace, selectores));
-    }
-    const resultados = await Promise.all(promesas);
-    for (const r of resultados) {
-      usuarioMensajes.push(r);
-    }
-    await sleep(ESPERA_SEGUNDOS);
+    const blob = new Blob([informeJSON], { type: "application/json" });
+
+    const linkDescarga = document.createElement("a");
+    linkDescarga.href = URL.createObjectURL(blob);
+    linkDescarga.download = `fc_informe_${this.usuarioId}.json`;
+    linkDescarga.click();
+
+    this.informarProgreso("🏆 informe generado correctamente", "green", false);
   }
-  return usuarioMensajes;
 }
 
 /**
+ * Genera el archivo JSON del usuario que debe analizarse para crear el perfil.
  *
- * @param {Perfil} perfil
- * @param {UsuarioHilos} hilos
- * @param {UsuarioMensajes} mensaje
+ * Se incorpora la descripción junto a su actividad más reciente (últimos 25 hilos, últimos 50 mensajes)
+ *
+ * @param {number} espera
+ * @param {number} simultaneidad
  * @param {string} usuarioId
+ * @param {number} limitePagina
  */
-function guardarInforme(perfil, hilos, mensajes, usuarioId) {
-  /**
-   * @type {UsuarioAnalizado}
-   */
-  const usuarioAnalizado = {
-    perfil: perfil,
-    hilos: hilos,
-    mensajes: mensajes,
-  };
-
-  const informeJSON = JSON.stringify(usuarioAnalizado);
-  informarProgreso(
-    `Informe en formato JSON generado correctamente <pre>${informeJSON}</pre>`,
-    "green",
-    false
+async function elaborarPerfil(espera, simultaneidad, usuarioId, limitePagina) {
+  const usuarioFC = new UsuarioFC(
+    espera,
+    simultaneidad,
+    usuarioId,
+    limitePagina
   );
-  try {
-    const blob = new Blob([informeJSON], { type: "text/plain;charset=utf-8" });
-    saveAs(blob, `fc_informe_${usuarioId}.json`);
-  } catch (error) {
-    informarProgreso(
-      `error intentando guardar el archivo con el informe ${error}`,
-      "red",
-      false
-    );
-  }
-  informarProgreso("🏆 informe generado correctamente", "green", false);
+  await usuarioFC.peticionPaginaPrincipal();
+  await usuarioFC.extraerDescripcion();
+  await usuarioFC.buscarHilos();
+  
+  await usuarioFC.buscarMensajes();
+  await usuarioFC.extraerIntervencion("hilos");
+  await usuarioFC.extraerIntervencion("mensajes");
+  usuarioFC.serializarDatos();
 }
 
-async function analizarPerfilForocoches() {
-  const usuarioIdTemaNuevo = await usuarioIdTema();
-  // usuarioIdTemaNuevo.usuarioId = "" // Modificar para crear informes de otros usuarios
-  const selectores = definirSelectores(usuarioIdTemaNuevo.temaNuevo);
-  const perfil = await extraerDescripcion(
-    usuarioIdTemaNuevo.usuarioId,
-    selectores
-  );
-
-  const hilos = await extraerHilos(perfil.usuario, selectores);
-  const enlacesMensajes = await extraerEnlacesMensajes(
-    perfil.usuario,
-    selectores
-  );
-  const mensajes = await extraerMensajes(enlacesMensajes, selectores);
-  guardarInforme(perfil, hilos, mensajes, usuarioIdTemaNuevo.usuarioId);
-}
-
-analizarPerfilForocoches();
+elaborarPerfil(ESPERA, SIMULTANEIDAD, USUARIOID, PAGINAS);
